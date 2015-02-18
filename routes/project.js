@@ -47,10 +47,10 @@ function openRepo(req) {
 	return repo;
 }
 
-function history(req, branch, next) {
+function history(req, branch, limit, next) {
 	var repo = openRepo(req);
 
-	var limit = 20;
+	limit = limit||20;
 	var commits = [];
 	var baseUrl = '/' + req.params.area + '/' + req.params.project + '/';
 
@@ -96,6 +96,7 @@ function tree(req, res, next) {
 	var urlPath = path.join('/');
 	var project = req.params.project;
 	var baseUrl = '/' + req.params.area + '/' + project + '/';
+	var historyUrl = baseUrl + branch + '/history';
 
 	function done(tree, commit) { 
 		var treeM = [];
@@ -110,7 +111,7 @@ function tree(req, res, next) {
 				url: baseUrl + branch + urlPath + '/' + (isDir ? name + '/' : name.replace(/.cube$/,''))
 			});
 		}
-		res.render('tree', {title: req.params.area + '/' + project + (urlPath ? '/' + urlPath : ''), tree: treeM, commit: commit});
+		res.render('tree', {title: req.params.area + '/' + project + (urlPath ? '/' + urlPath : ''), tree: treeM, commit: commit, historyUrl: historyUrl});
 	}
 
 	branchOrCommit(repo, branch, function(err, commit) {
@@ -250,18 +251,28 @@ router.get('/:branch/*.xslx', function(req, res, next) {
 	res.send('I am xslx for ' + req.params[0]);
 });
 
-router.get('/:branch/history', function(req, res, next) {
+router.get('/:branch/history/:limit?', function(req, res, next) {
 	var branchR = req.params.branch || req.params.commit;
 	var branch = branchR || 'master';
 	branch = branch.replace(/^~/, ''); //remove leading ~ when we match with branch with command
 	
 	var area = req.params.area;
-	var project = req.params.project;
+	var project = req.params.project;	
+	var limit = parseInt(req.params.limit || 20);
 
 	var title = area + '/' + project + (branchR ? '/' + branchR : '')
-	history(req, branch, function(err, commits) {
+	history(req, branch, limit+1, function(err, commits) {
 		if (err) return next(err);
-		res.render('history', {commits: commits, title: title, errors: []})
+
+		var nextCommit = undefined;
+		if(commits.length == limit+1) nextCommit = commits.pop();
+
+		res.render('history', {	commits: commits,
+								title: title,
+								limit: limit,									
+								nextCommit: nextCommit,	
+								limit:limit,						 
+								errors: []})
 	});
 });
 
